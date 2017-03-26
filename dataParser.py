@@ -45,8 +45,6 @@ def queryRelationship(product, category):
     db.close()
 
     return data_json
-    #payload = {'json_payload': data_json}
-    #requests.post('http://fedora-nyc1.laulabs.net:3000/api/get_product_qty', data=payload)
 
 class getProductQty():
     def on_post(self, req, resp):
