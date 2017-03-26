@@ -14,83 +14,6 @@ cursor = None
 db = None
 api = falcon.API()
 
-api.add_route('/get_food_qty', getFoodQty())
-
-def queryRelationship(category, sumvalue, catselection):
-
-    if category == "Beer":
-        selectionType = "brand_name = '" + catselection+"'"
-        groupCat ="pos2.product_name"
-        col = 2
-    else:
-        selectionType = "Product_Name = '" + catselection+"'"
-        groupCat = "pos2.brand_name"
-        col = 3
-
-
-    query1 = "CREATE TEMPORARY TABLE IF NOT EXISTS postemp AS (SELECT * FROM pos WHERE category_name = '"+category+"' AND " +selectionType+" ORDER BY order_item_id LIMIT 13000); "
-    cursor.execute(query1)
-    query2 = "CREATE TEMPORARY TABLE IF NOT EXISTS postemp2 AS (SELECT * FROM pos WHERE category_name = '"+ sumvalue+"' AND price <> 0 ORDER BY order_item_id LIMIT 13000); "
-    cursor.execute(query2)
-    query = "SELECT pos.Product_Name, pos.brand_name, pos2.Product_Name, pos2.brand_name, pos2.price, SUM(pos2.qty) AS Quantity, SUM(pos2.price*pos2.qty) AS Value FROM "
-    query = query+ "postemp as pos INNER JOIN postemp2 AS pos2 ON pos2.order_id = pos.order_id GROUP BY "+groupCat+" ORDER BY SUM(pos2.qty) DESC LIMIT 10"
-    print(query)
-    cursor.execute(query)
-    #cursor.execute("SELECT * FROM pos LIMIT 10")
-    results = cursor.fetchall()
-    d = {}
-    arrayx = []
-    arrayy= []
-    for i in results:
-        arrayx.append(i[col])
-        arrayy.append(float(i[5]))
-    d['x']=arrayx
-    d['y']=arrayy
-    data_json = json.dumps(d)
-    db.close()
-    print (data_json)
-    payload = {'json_payload': data_json}
-    r = requests.post('http://fedora-nyc1.laulabs.net:3000/api/get_food_qty', data=payload)
-    print(r.content)
-
-def topBeer(barType):
-    
-    connectServer()
-    query = "SELECT brand_name, SUM(consumption) AS quantity FROM draught WHERE bar_type='" + barType+"' GROUP BY brand_name ORDER BY SUM(consumption) DESC LIMIT 10"
-    cursor.execute(query)
-    results = cursor.fetchall()
-    d={}
-    arrayx=[]
-    arrayy=[]
-    for i in results:
-        arrayx.append(i[0])
-        arrayy.append(i[1])
-    d['x'] = arrayx
-    d['y'] = arrayy
-    data_json = json.dumps(d)
-    payload = {'json_payload': data_json}
-    r = requests.post('http://fedora-nyc1.laulabs.net:3000/api/get_food_qty', data=payload)
-    print(r.content)
-    
-def barTypes():
-    connectServer()
-    query="SELECT DISTINCT bar_type FROM draught"
-    cursor.execute(query)
-    results = cursor.fetchall()
-    d={}
-    arrayx = {}
-    for i in results:
-        arrayx.append(i[0])
-    data_json = json.dumps(d)
-    payload = {'json_payload': data_json}
-    r = requests.post('http://fedora-nyc1.laulabs.net:3000/api/get_food_qty', data=payload)
-    print(r.content)
-
-class getFoodQty():
-    def on_post(self, req, resp):
-        data = json.loads(req.stream.read(req.content_length or 0))
-        queryRelationship(data['food'], data['type'], data['category'])
-
 def connectServer():
     global db
     db = MySQLdb.connect(host="fedora-nyc2.laulabs.net",    # your host, usually localhost
@@ -100,15 +23,44 @@ def connectServer():
     global cursor
     cursor = db.cursor()
 
-def sanitizeData():
+def queryRelationship(product, category):
+    connectServer()
 
+    query1 = "create temporary table if not exists temp_food (select distinct order_id from pos where product_name = %s limit 5000)"
+    cursor.execute(query1, [product])
+    print(query1)
+
+    query = ("SELECT p.product_name, sum(qty) as quantity FROM pos_clean p inner join temp_food on temp_food.order_id = p.order_id "
+             "where p.category_name = %s and p.brand_name in (select name from top_20_pct_beers) group by p.product_name limit 5000")
+    print(query)
+
+    cursor.execute(query, [category])
+
+    d = {}
+    d['name'], quantity = zip(*cursor.fetchall())
+    d['quantity'] = [float(row) for row in quantity]
+
+    data_json = json.dumps(d)
+
+    db.close()
+
+    return data_json
+    #payload = {'json_payload': data_json}
+    #requests.post('http://fedora-nyc1.laulabs.net:3000/api/get_product_qty', data=payload)
+
+class getProductQty():
+    def on_post(self, req, resp):
+        content = req.stream.read(req.content_length or 0).decode('utf-8')
+        print("content",content)
+        data = json.loads(content)
+        print("data",data['product'])
+        print("data",data['category'])
+        resp.body = queryRelationship(data['product'], data['category'])
+        print(resp.body)
+
+api.add_route('/get_product_qty', getProductQty())
+
+def sanitizeData():
     cursor.execute("SELECT VERSION()")
     #data = cursor.fetchone()
     print (cursor.fetchone())
-
-#def topBeer():
-
-#if __name__ == '__main__':
-#    connectServer()
-#    queryRelationship("Food","Beer","Poutine")
-#    #sanitizeData()
