@@ -53,39 +53,6 @@ def queryRelationship(category, sumvalue, catselection):
     r = requests.post('http://fedora-nyc1.laulabs.net:3000/api/get_food_qty', data=payload)
     print(r.content)
 
-def topBeer(barType):
-    
-    connectServer()
-    query = "SELECT brand_name, SUM(consumption) AS quantity FROM draught WHERE bar_type='" + barType+"' GROUP BY brand_name ORDER BY SUM(consumption) DESC LIMIT 10"
-    cursor.execute(query)
-    results = cursor.fetchall()
-    d={}
-    arrayx=[]
-    arrayy=[]
-    for i in results:
-        arrayx.append(i[0])
-        arrayy.append(i[1])
-    d['x'] = arrayx
-    d['y'] = arrayy
-    data_json = json.dumps(d)
-    payload = {'json_payload': data_json}
-    r = requests.post('http://fedora-nyc1.laulabs.net:3000/api/get_food_qty', data=payload)
-    print(r.content)
-    
-def barTypes():
-    connectServer()
-    query="SELECT DISTINCT bar_type FROM draught"
-    cursor.execute(query)
-    results = cursor.fetchall()
-    d={}
-    arrayx = {}
-    for i in results:
-        arrayx.append(i[0])
-    data_json = json.dumps(d)
-    payload = {'json_payload': data_json}
-    r = requests.post('http://fedora-nyc1.laulabs.net:3000/api/get_food_qty', data=payload)
-    print(r.content)
-
 class getFoodQty():
     def on_post(self, req, resp):
         data = json.loads(req.stream.read(req.content_length or 0))
