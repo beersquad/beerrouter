@@ -42,7 +42,7 @@ def queryRelationship(category, sumvalue, catselection):
     arrayx = []
     arrayy= []
     for i in results:
-        arrayx.append(i[3])
+        arrayx.append(i[col])
         arrayy.append(float(i[5]))
     d['x']=arrayx
     d['y']=arrayy
@@ -57,7 +57,6 @@ class getFoodQty():
     def on_post(self, req, resp):
         data = json.loads(req.stream.read(req.content_length or 0))
         queryRelationship(data['food'], data['type'], data['category'])
-
 
 def connectServer():
     global db
